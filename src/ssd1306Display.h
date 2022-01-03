@@ -15,7 +15,11 @@ class SsdDisplay
 public:
     SsdDisplay(){};
     int init();
-    void draw_text(byte x_pos, byte y_pos, char *text, byte text_size);
+    void draw_text(const int16_t &x_pos, const int16_t &y_pos, const char *text, const byte &text_size);
+    void draw_text(const int16_t &row, const int16_t &col, const String &text);
+    void clearDisplay();
+
+private:
     Adafruit_SSD1306 display;
 };
 

@@ -6,76 +6,108 @@
 SsdDisplay display;
 
 // Pins for the LED output
-static const int8_t LED1 = 3;
-static const int8_t LED_COUNT = 8;
-static const int8_t LED_N = LED1 + LED_COUNT - 1; // Assume all LED pins are consecutive
+static const pin_size_t LED1 = 3;
+static const pin_size_t LED_COUNT = 8;
+static const pin_size_t LED_N = LED1 + LED_COUNT - 1; // Assume all LED pins are consecutive
+pin_size_t currentPin = LED1 - 1;
+pin_size_t nextPin = currentPin;
+int8_t delta = 1; // must be signed so it can take on negative value
 
-static const int8_t PursuitButton = 13;
-unsigned long currentTime = 0;
-unsigned long lastTime = 0;
+// button setup
+static const pin_size_t DriveModeButton = 13;
 unsigned long buttonDelay_ms = 750;
 
 // Flash modes
+struct FlashMode
+{
+  uint16_t delay_ms;
+  String name;
+};
 static const uint16_t regular_delay_ms = 200;
 static const uint16_t pursuit_delay_ms = 50;
-static const uint16_t delay_ms[] = {regular_delay_ms, pursuit_delay_ms};
-static const int8_t modeCount = sizeof(delay_ms) / sizeof(delay_ms[0]);
+static const uint16_t surveillance_delay_ms = 400;
+static const FlashMode driveMode[] = {{regular_delay_ms, "Cruise"}, {pursuit_delay_ms, "Pursuit"}, {surveillance_delay_ms, "Surveillance"}};
+static const int8_t modeCount = sizeof(driveMode) / sizeof(driveMode[0]);
 int8_t flashMode = 0;
 
 static const int8_t LED_ON = HIGH;
 static const int8_t LED_OFF = LOW;
 
-int8_t currentPin = LED1;
-int8_t nextPin = LED1 + 1;
-int8_t delta = 1;
+void printDriveMode()
+{
+  display.draw_text(2, 0, "Drive Mode:");
+  display.draw_text(3, 0, "                  ");
+  display.draw_text(3, 2, driveMode[flashMode].name);
+}
 
 void setup()
 {
-
   // LED pin setup
-  Serial.println(F("Initializing LEDs"));
-  for (int8_t i = 0; i < LED_COUNT; ++i)
+  for (pin_size_t ledPin = LED1; ledPin <= LED_N; ++ledPin)
   {
-    int8_t ledPin = LED1 + i;
     pinMode(ledPin, OUTPUT);
-    digitalWrite(ledPin, LED_OFF);
+    digitalWrite(ledPin, LED_ON);
   }
 
-  // pursuit mode button
-  pinMode(PursuitButton, INPUT);
+  pinMode(DriveModeButton, INPUT);
 
   // Display intialization
-  Serial.println(F("Initializing Dispalay"));
   if (display.init() != 0)
   {
-    Serial.println(F("Initializing display failed"));
-    // while (true)
-    //   ;
+    while (true)
+      ;
+  }
+
+  display.clearDisplay();
+  display.draw_text(0, 0, "Press button");
+  display.draw_text(1, 0, "to begin mission.");
+  while (!digitalRead(DriveModeButton))
+    ;
+
+  display.clearDisplay();
+  display.draw_text(0, 0, "Begin Mission!");
+  delay(1000);
+  printDriveMode();
+}
+
+void nextLED()
+{
+  static unsigned long lastTime = 0;
+  unsigned long currentTime = millis();
+  if (currentTime - lastTime > driveMode[flashMode].delay_ms)
+  {
+    lastTime = currentTime;
+    nextPin = currentPin + delta;
+    if (nextPin < LED1 || LED_N < nextPin)
+    {
+      delta *= -1;
+      nextPin = currentPin + delta;
+    }
+
+    digitalWrite(nextPin, LED_ON);
+    delay(10);
+    digitalWrite(currentPin, LED_OFF);
+    currentPin = nextPin;
+  }
+}
+
+void checkDriveModeButton()
+{
+  static unsigned long lastTime = 0;
+  if (digitalRead(DriveModeButton))
+  {
+    unsigned long currentTime = millis();
+    if (currentTime - lastTime > buttonDelay_ms)
+    {
+      lastTime = currentTime;
+      flashMode = (flashMode + 1) % modeCount;
+      printDriveMode();
+    }
   }
 }
 
 void loop()
 {
-  nextPin = currentPin + delta;
-  if (nextPin < LED1 || LED_N < nextPin)
-  {
-    delta *= -1;
-    nextPin = currentPin + delta;
-  }
-
-  digitalWrite(currentPin, LED_OFF);
-  digitalWrite(nextPin, LED_ON);
-  currentPin = nextPin;
-  delay(delay_ms[flashMode]);
-
-  if (digitalRead(PursuitButton))
-  {
-    currentTime = millis();
-    if (currentTime - lastTime > buttonDelay_ms)
-    {
-      Serial.println(F("Flip"));
-      lastTime = currentTime;
-      flashMode = (flashMode + 1) % modeCount;
-    }
-  }
+  nextLED();
+  checkDriveModeButton();
 }
