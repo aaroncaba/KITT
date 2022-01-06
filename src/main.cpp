@@ -9,8 +9,9 @@ SsdDisplay display;
 static const pin_size_t LED1 = 3;
 static const pin_size_t LED_COUNT = 8;
 static const pin_size_t LED_N = LED1 + LED_COUNT - 1; // Assume all LED pins are consecutive
-pin_size_t currentPin = LED1 - 1;
-pin_size_t nextPin = currentPin;
+pin_size_t currentLed = LED1 - 1;
+pin_size_t nextLed = currentLed;
+pin_size_t lastLed = currentLed;
 int8_t delta = 1; // must be signed so it can take on negative value
 
 // button setup
@@ -77,17 +78,17 @@ void nextLED()
   if (currentTime - lastTime > driveMode[flashMode].delay_ms)
   {
     lastTime = currentTime;
-    nextPin = currentPin + delta;
-    if (nextPin < LED1 || LED_N < nextPin)
+    nextLed = currentLed + delta;
+    if (nextLed < LED1 || LED_N < nextLed)
     {
       delta *= -1;
-      nextPin = currentPin + delta;
+      //nextLed = currentLed + delta;
     }
 
-    digitalWrite(nextPin, LED_ON);
-    delay(10);
-    digitalWrite(currentPin, LED_OFF);
-    currentPin = nextPin;
+    digitalWrite(lastLed, LED_OFF);
+    digitalWrite(nextLed, LED_ON);
+    lastLed = currentLed;
+    currentLed = nextLed;
   }
 }
 
